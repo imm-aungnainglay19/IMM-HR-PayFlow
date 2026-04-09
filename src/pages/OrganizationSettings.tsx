@@ -7,7 +7,8 @@ import {
   Pencil, 
   Trash2, 
   Loader2,
-  Search
+  Search,
+  Receipt
 } from 'lucide-react';
 import pb from '../lib/pocketbase';
 import { 
@@ -72,11 +73,21 @@ interface JobTitle {
   created: string;
 }
 
+interface SalaryTemplate {
+  id: string;
+  template_name: string;
+  basic_salary: number;
+  allowances: number;
+  tax_rate: number;
+  created: string;
+}
+
 const OrganizationSettings: React.FC = () => {
   const { user } = useAuth();
   const isMock = user?.id === 'mock-admin-id';
   const [departments, setDepartments] = useState<Department[]>([]);
   const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+  const [salaryTemplates, setSalaryTemplates] = useState<SalaryTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
@@ -90,11 +101,18 @@ const OrganizationSettings: React.FC = () => {
   const [jobSalary, setJobSalary] = useState('');
   const [editingJob, setEditingJob] = useState<JobTitle | null>(null);
 
+  const [templateName, setTemplateName] = useState('');
+  const [templateBasicSalary, setTemplateBasicSalary] = useState('');
+  const [templateTaxRate, setTemplateTaxRate] = useState('');
+  const [templateAllowances, setTemplateAllowances] = useState('');
+  const [editingTemplate, setEditingTemplate] = useState<SalaryTemplate | null>(null);
+
   const [isDeptDialogOpen, setIsDeptDialogOpen] = useState(false);
   const [isJobDialogOpen, setIsJobDialogOpen] = useState(false);
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
 
-  const fetchData = async () => {
-    setIsLoading(true);
+  const fetchData = async (showLoader = true) => {
+    if (showLoader) setIsLoading(true);
     
     if (isMock) {
       setTimeout(() => {
@@ -107,20 +125,33 @@ const OrganizationSettings: React.FC = () => {
           { id: 'j1', title: 'Software Engineer', department: 'd1', base_salary: 5000, created: new Date().toISOString(), expand: { department: mockDepts[0] } },
           { id: 'j2', title: 'Product Manager', department: 'd2', base_salary: 6000, created: new Date().toISOString(), expand: { department: mockDepts[1] } }
         ];
+        const mockTemplates: SalaryTemplate[] = [
+          { 
+            id: 't1', 
+            template_name: 'Standard Tech', 
+            basic_salary: 4500, 
+            tax_rate: 10, 
+            allowances: 500, 
+            created: new Date().toISOString() 
+          }
+        ];
         setDepartments(mockDepts);
         setJobTitles(mockJobs);
-        setIsLoading(false);
+        setSalaryTemplates(mockTemplates);
+        if (showLoader) setIsLoading(false);
       }, 500);
       return;
     }
 
     try {
-      const [deptRecords, jobRecords] = await Promise.all([
+      const [deptRecords, jobRecords, templateRecords] = await Promise.all([
         pb.collection('departments').getFullList<Department>({ sort: 'name' }),
-        pb.collection('job_titles').getFullList<JobTitle>({ sort: 'title', expand: 'department' })
+        pb.collection('job_titles').getFullList<JobTitle>({ sort: 'title', expand: 'department' }),
+        pb.collection('salary_templates').getFullList<SalaryTemplate>({ sort: 'template_name' })
       ]);
       setDepartments(deptRecords);
       setJobTitles(jobRecords);
+      setSalaryTemplates(templateRecords);
     } catch (err: any) {
       console.error('Failed to fetch organization data', err);
       const message = err.message || 'Failed to load settings. Please check your connection.';
@@ -133,7 +164,7 @@ const OrganizationSettings: React.FC = () => {
         toast.error(message);
       }
     } finally {
-      setIsLoading(false);
+      if (showLoader) setIsLoading(false);
     }
   };
 
@@ -149,16 +180,19 @@ const OrganizationSettings: React.FC = () => {
       const data = { name: deptName, description: deptDesc };
       if (editingDept) {
         await pb.collection('departments').update(editingDept.id, data);
-        toast.success('Department updated successfully');
       } else {
         await pb.collection('departments').create(data);
-        toast.success('Department created successfully');
       }
+      
+      // Re-fetch data first
+      await fetchData(false);
+      
+      // Success toast and close modal after re-fetch
+      toast.success(editingDept ? 'Department updated successfully' : 'Department created successfully');
       setIsDeptDialogOpen(false);
       setDeptName('');
       setDeptDesc('');
       setEditingDept(null);
-      fetchData();
     } catch (err: any) {
       toast.error(err.message || 'Failed to save department');
     } finally {
@@ -169,8 +203,8 @@ const OrganizationSettings: React.FC = () => {
   const handleDeleteDept = async (id: string) => {
     try {
       await pb.collection('departments').delete(id);
-      toast.success('Department deleted');
-      fetchData();
+      await fetchData(false);
+      toast.success('Department deleted and table updated');
     } catch (err: any) {
       toast.error('Failed to delete department. It might be in use.');
     }
@@ -192,17 +226,20 @@ const OrganizationSettings: React.FC = () => {
       };
       if (editingJob) {
         await pb.collection('job_titles').update(editingJob.id, data);
-        toast.success('Job title updated successfully');
       } else {
         await pb.collection('job_titles').create(data);
-        toast.success('Job title created successfully');
       }
+      
+      // Re-fetch data first
+      await fetchData(false);
+      
+      // Success toast and close modal after re-fetch
+      toast.success(editingJob ? 'Job title updated successfully' : 'Job title created successfully');
       setIsJobDialogOpen(false);
       setJobTitle('');
       setJobDept('');
       setJobSalary('');
       setEditingJob(null);
-      fetchData();
     } catch (err: any) {
       toast.error(err.message || 'Failed to save job title');
     } finally {
@@ -213,10 +250,55 @@ const OrganizationSettings: React.FC = () => {
   const handleDeleteJob = async (id: string) => {
     try {
       await pb.collection('job_titles').delete(id);
-      toast.success('Job title deleted');
-      fetchData();
+      await fetchData(false);
+      toast.success('Job title deleted and table updated');
     } catch (err: any) {
       toast.error('Failed to delete job title');
+    }
+  };
+
+  // Salary Template CRUD
+  const handleSaveTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsActionLoading(true);
+    try {
+      const data = {
+        template_name: templateName,
+        basic_salary: parseFloat(templateBasicSalary) || 0,
+        tax_rate: parseFloat(templateTaxRate) || 0,
+        allowances: parseFloat(templateAllowances) || 0
+      };
+      if (editingTemplate) {
+        await pb.collection('salary_templates').update(editingTemplate.id, data);
+      } else {
+        await pb.collection('salary_templates').create(data);
+      }
+      
+      // Re-fetch data first
+      await fetchData(false);
+      
+      // Success toast and close modal after re-fetch
+      toast.success(editingTemplate ? 'Salary template updated successfully' : 'Salary template created successfully');
+      setIsTemplateDialogOpen(false);
+      setTemplateName('');
+      setTemplateBasicSalary('');
+      setTemplateTaxRate('');
+      setTemplateAllowances('');
+      setEditingTemplate(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save salary template');
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    try {
+      await pb.collection('salary_templates').delete(id);
+      await fetchData(false);
+      toast.success('Salary template deleted and table updated');
+    } catch (err: any) {
+      toast.error('Failed to delete salary template');
     }
   };
 
@@ -236,7 +318,7 @@ const OrganizationSettings: React.FC = () => {
       </div>
 
       <Tabs defaultValue="departments" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2 mb-8">
+        <TabsList className="grid w-full max-w-lg grid-cols-3 mb-8">
           <TabsTrigger value="departments" className="flex items-center gap-2">
             <Building2 className="w-4 h-4" />
             Departments
@@ -244,6 +326,10 @@ const OrganizationSettings: React.FC = () => {
           <TabsTrigger value="job_titles" className="flex items-center gap-2">
             <Briefcase className="w-4 h-4" />
             Job Titles
+          </TabsTrigger>
+          <TabsTrigger value="salary_templates" className="flex items-center gap-2">
+            <Receipt className="w-4 h-4" />
+            Salary Templates
           </TabsTrigger>
         </TabsList>
 
@@ -481,6 +567,159 @@ const OrganizationSettings: React.FC = () => {
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteJob(job.id)}>
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="salary_templates" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold text-slate-900">Salary Templates</h2>
+            <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+              <DialogTrigger 
+                render={
+                  <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={() => {
+                    setEditingTemplate(null);
+                    setTemplateName('');
+                    setTemplateBasicSalary('');
+                    setTemplateTaxRate('');
+                    setTemplateAllowances('');
+                  }}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Template
+                  </Button>
+                }
+              />
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingTemplate ? 'Edit Salary Template' : 'Add New Salary Template'}</DialogTitle>
+                  <DialogDescription>
+                    Define a standard salary structure with allowances and tax rates.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSaveTemplate} className="space-y-6 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="template-name">Template Name</Label>
+                      <Input 
+                        id="template-name" 
+                        placeholder="e.g. Standard Tech, Senior Management" 
+                        value={templateName}
+                        onChange={(e) => setTemplateName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="template-basic">Basic Salary (Monthly)</Label>
+                      <Input 
+                        id="template-basic" 
+                        type="number"
+                        placeholder="0.00" 
+                        value={templateBasicSalary}
+                        onChange={(e) => setTemplateBasicSalary(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="template-allowances">Allowances (Total)</Label>
+                      <Input 
+                        id="template-allowances" 
+                        type="number"
+                        placeholder="0.00" 
+                        value={templateAllowances}
+                        onChange={(e) => setTemplateAllowances(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="template-tax">Tax Rate (%)</Label>
+                      <Input 
+                        id="template-tax" 
+                        type="number"
+                        placeholder="0" 
+                        value={templateTaxRate}
+                        onChange={(e) => setTemplateTaxRate(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button type="submit" disabled={isActionLoading}>
+                      {isActionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      {editingTemplate ? 'Update' : 'Create'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card className="border-slate-200 shadow-sm overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-50">
+                <TableRow>
+                  <TableHead>Template Name</TableHead>
+                  <TableHead>Basic Salary</TableHead>
+                  <TableHead>Allowances</TableHead>
+                  <TableHead>Tax Rate</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {salaryTemplates.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-12 text-slate-500">
+                      No salary templates found. Add one to get started.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  salaryTemplates.map((template) => (
+                    <TableRow key={template.id}>
+                      <TableCell className="font-medium">{template.template_name}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        ${template.basic_salary.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        ${template.allowances.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{template.tax_rate}%</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger 
+                            render={
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            }
+                          />
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => {
+                              setEditingTemplate(template);
+                              setTemplateName(template.template_name);
+                              setTemplateBasicSalary(template.basic_salary.toString());
+                              setTemplateTaxRate(template.tax_rate.toString());
+                              setTemplateAllowances(template.allowances.toString());
+                              setIsTemplateDialogOpen(true);
+                            }}>
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteTemplate(template.id)}>
                               <Trash2 className="w-4 h-4 mr-2" />
                               Delete
                             </DropdownMenuItem>

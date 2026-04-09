@@ -82,17 +82,11 @@ interface JobTitle {
   base_salary?: number;
 }
 
-interface Allowance {
-  name: string;
-  amount: number;
-  type: 'fixed' | 'percentage';
-}
-
 interface SalaryTemplate {
   id: string;
-  name: string;
-  basic_pay: number;
-  allowances: Allowance[];
+  template_name: string;
+  basic_salary: number;
+  allowances: number;
   tax_rate: number;
 }
 
@@ -173,7 +167,7 @@ const EmployeeManagement: React.FC = () => {
     if (watchSalaryTemplate) {
       const template = salaryTemplates.find(t => t.id === watchSalaryTemplate);
       if (template) {
-        setValue('base_salary', template.basic_pay);
+        setValue('base_salary', template.basic_salary);
       }
     }
   }, [watchSalaryTemplate, salaryTemplates, setValue]);
@@ -220,7 +214,7 @@ const EmployeeManagement: React.FC = () => {
         { id: 'j2', title: 'Product Manager', base_salary: 6000 }
       ]);
       setSalaryTemplates([
-        { id: 't1', name: 'Standard Tech', basic_pay: 4500, tax_rate: 10, allowances: [{ name: 'Housing', amount: 500, type: 'fixed' as const }] }
+        { id: 't1', template_name: 'Standard Tech', basic_salary: 4500, tax_rate: 10, allowances: 500 }
       ]);
       return;
     }
@@ -271,7 +265,7 @@ const EmployeeManagement: React.FC = () => {
             expand: {
               department: { id: 'd1', name: 'Engineering' },
               job_title: { id: 'j1', title: 'Software Engineer' },
-              salary_template: { id: 't1', name: 'Standard Tech', basic_pay: 4500, tax_rate: 10, allowances: [{ name: 'Housing', amount: 500, type: 'fixed' as const }] }
+              salary_template: { id: 't1', template_name: 'Standard Tech', basic_salary: 4500, tax_rate: 10, allowances: 500 }
             }
           },
           {
@@ -288,7 +282,7 @@ const EmployeeManagement: React.FC = () => {
             expand: {
               department: { id: 'd2', name: 'Product' },
               job_title: { id: 'j2', title: 'Product Manager' },
-              salary_template: { id: 't2', name: 'Senior Management', basic_pay: 5500, tax_rate: 15, allowances: [{ name: 'Car', amount: 500, type: 'fixed' as const }] }
+              salary_template: { id: 't2', template_name: 'Senior Management', basic_salary: 5500, tax_rate: 15, allowances: 500 }
             }
           }
         ];
@@ -582,7 +576,7 @@ const EmployeeManagement: React.FC = () => {
                           </SelectTrigger>
                           <SelectContent>
                             {salaryTemplates.map(t => (
-                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                              <SelectItem key={t.id} value={t.id}>{t.template_name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -614,17 +608,11 @@ const EmployeeManagement: React.FC = () => {
                       Compensation Breakdown
                     </h4>
                     <div className="grid grid-cols-2 gap-y-2 text-xs">
-                      <span className="text-slate-500">Basic Pay:</span>
-                      <span className="text-right font-medium">${selectedTemplate.basic_pay.toLocaleString()}</span>
+                      <span className="text-slate-500">Basic Salary:</span>
+                      <span className="text-right font-medium">${selectedTemplate.basic_salary.toLocaleString()}</span>
                       
-                      {selectedTemplate.allowances?.map((allowance, idx) => (
-                        <React.Fragment key={idx}>
-                          <span className="text-slate-500">{allowance.name}:</span>
-                          <span className="text-right font-medium">
-                            {allowance.type === 'fixed' ? `$${allowance.amount.toLocaleString()}` : `${allowance.amount}%`}
-                          </span>
-                        </React.Fragment>
-                      ))}
+                      <span className="text-slate-500">Allowances:</span>
+                      <span className="text-right font-medium">${selectedTemplate.allowances.toLocaleString()}</span>
                       
                       <div className="col-span-2 border-t border-slate-200 my-1"></div>
                       
@@ -743,7 +731,7 @@ const EmployeeManagement: React.FC = () => {
                       </div>
                       {emp.salary_template && (
                         <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
-                          {emp.expand?.salary_template?.name || <span className="text-amber-600 lowercase italic">Restricted</span>}
+                          {emp.expand?.salary_template?.template_name || <span className="text-amber-600 lowercase italic">Restricted</span>}
                         </span>
                       )}
                     </div>
