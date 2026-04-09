@@ -5,6 +5,7 @@ import { AuthModel } from 'pocketbase';
 interface AuthContextType {
   user: AuthModel | null;
   isAdmin: boolean;
+  isEmployee: boolean;
   isLoading: boolean;
   logout: () => void;
 }
@@ -31,10 +32,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  const isAdmin = user?.collectionName === 'admins' || user?.email === 'admin@example.com'; // Adjust based on your logic
+  const isAdmin = user?.collectionName === 'admins';
+  const isEmployee = user?.collectionName === 'employees';
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, isLoading, logout }}>
+    <AuthContext.Provider value={{ user, isAdmin, isEmployee, isLoading, logout }}>
       {children}
     </AuthContext.Provider>
   );

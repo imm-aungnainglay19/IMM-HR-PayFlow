@@ -27,6 +27,7 @@ import { format } from 'date-fns';
 
 interface SalarySlip {
   id: string;
+  employee: string;
   net_pay: number;
   gross_pay: number;
   deductions: number;

@@ -21,6 +21,7 @@ import { Link } from 'react-router-dom';
 
 interface SalarySlip {
   id: string;
+  employee: string;
   net_pay: number;
   gross_pay: number;
   deductions: number;
