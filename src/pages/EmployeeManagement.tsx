@@ -64,7 +64,7 @@ const employeeSchema = z.object({
   position: z.string().min(1, 'Position is required'),
   department: z.string().min(1, 'Department is required'),
   job_title: z.string().min(1, 'Job title is required'),
-  salary_template: z.string().optional(),
+  salary_template: z.string().min(1, 'Salary template is required'),
   joining_date: z.string().min(1, 'Joining date is required'),
   base_salary: z.number().min(0, 'Base salary must be a positive number'),
 });
@@ -220,7 +220,7 @@ const EmployeeManagement: React.FC = () => {
         { id: 'j2', title: 'Product Manager', base_salary: 6000 }
       ]);
       setSalaryTemplates([
-        { id: 't1', name: 'Standard Tech', basic_pay: 4500, tax_rate: 10, allowances: [{ name: 'Housing', amount: 500, type: 'fixed' }] }
+        { id: 't1', name: 'Standard Tech', basic_pay: 4500, tax_rate: 10, allowances: [{ name: 'Housing', amount: 500, type: 'fixed' as const }] }
       ]);
       return;
     }
@@ -270,7 +270,8 @@ const EmployeeManagement: React.FC = () => {
             email: 'john@example.com',
             expand: {
               department: { id: 'd1', name: 'Engineering' },
-              job_title: { id: 'j1', title: 'Software Engineer' }
+              job_title: { id: 'j1', title: 'Software Engineer' },
+              salary_template: { id: 't1', name: 'Standard Tech', basic_pay: 4500, tax_rate: 10, allowances: [{ name: 'Housing', amount: 500, type: 'fixed' as const }] }
             }
           },
           {
@@ -286,7 +287,8 @@ const EmployeeManagement: React.FC = () => {
             email: 'jane@example.com',
             expand: {
               department: { id: 'd2', name: 'Product' },
-              job_title: { id: 'j2', title: 'Product Manager' }
+              job_title: { id: 'j2', title: 'Product Manager' },
+              salary_template: { id: 't2', name: 'Senior Management', basic_pay: 5500, tax_rate: 15, allowances: [{ name: 'Car', amount: 500, type: 'fixed' as const }] }
             }
           }
         ];
@@ -318,6 +320,19 @@ const EmployeeManagement: React.FC = () => {
       
       setTotalPages(result.totalPages);
       setPage(result.page);
+
+      // Check for missing expansions (likely permission issues)
+      const hasMissingExpansions = result.items.some(emp => 
+        (emp.department && !emp.expand?.department) || 
+        (emp.job_title && !emp.expand?.job_title) ||
+        (emp.salary_template && !emp.expand?.salary_template)
+      );
+
+      if (hasMissingExpansions) {
+        toast.warning('Some relational data is restricted. Admin: Please check Pocketbase API permissions for departments, job_titles, and salary_templates collections.', {
+          duration: 6000
+        });
+      }
     } catch (err: any) {
       if (err.status === 403) {
         toast.error('Permission denied: Please check Pocketbase API Rules.');
@@ -562,7 +577,7 @@ const EmployeeManagement: React.FC = () => {
                           value={field.value} 
                           onValueChange={field.onChange}
                         >
-                          <SelectTrigger id="salary_template">
+                          <SelectTrigger id="salary_template" aria-invalid={!!errors.salary_template} aria-describedby={errors.salary_template ? "salary_template-error" : undefined}>
                             <SelectValue placeholder="Select Template" />
                           </SelectTrigger>
                           <SelectContent>
@@ -573,6 +588,9 @@ const EmployeeManagement: React.FC = () => {
                         </Select>
                       )}
                     />
+                    {errors.salary_template && (
+                      <p id="salary_template-error" className="text-xs text-destructive">{errors.salary_template.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="base_salary">Basic Pay ($)</Label>
@@ -703,11 +721,11 @@ const EmployeeManagement: React.FC = () => {
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2 text-slate-900 font-medium">
                         <Briefcase className="w-3 h-3 text-slate-400" />
-                        {emp.expand?.job_title?.title || emp.position}
+                        {emp.expand?.job_title?.title || (emp.job_title ? <span className="text-amber-600 italic text-xs">Restricted</span> : emp.position)}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-slate-500">
                         <Building2 className="w-3 h-3" />
-                        {emp.expand?.department?.name || 'No Department'}
+                        {emp.expand?.department?.name || (emp.department ? <span className="text-amber-600 italic">Restricted</span> : 'No Department')}
                       </div>
                     </div>
                   </TableCell>
@@ -723,9 +741,9 @@ const EmployeeManagement: React.FC = () => {
                         <DollarSign className="w-3 h-3" />
                         {emp.base_salary.toLocaleString()}
                       </div>
-                      {emp.expand?.salary_template && (
+                      {emp.salary_template && (
                         <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
-                          {emp.expand.salary_template.name}
+                          {emp.expand?.salary_template?.name || <span className="text-amber-600 lowercase italic">Restricted</span>}
                         </span>
                       )}
                     </div>
