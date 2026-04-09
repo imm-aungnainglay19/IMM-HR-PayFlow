@@ -52,6 +52,9 @@ const EmployeeManagement: React.FC = () => {
   const isMock = user?.id === 'mock-admin-id';
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,12 +70,16 @@ const EmployeeManagement: React.FC = () => {
     base_salary: 0,
   });
 
-  const fetchEmployees = async () => {
-    setIsLoading(true);
+  const fetchEmployees = async (pageToFetch = 1, isLoadMore = false) => {
+    if (isLoadMore) {
+      setIsFetchingMore(true);
+    } else {
+      setIsLoading(true);
+    }
 
     if (isMock) {
       setTimeout(() => {
-        setEmployees([
+        const mockData = [
           {
             id: '1',
             full_name: 'John Doe',
@@ -91,27 +98,57 @@ const EmployeeManagement: React.FC = () => {
             base_salary: 6000,
             email: 'jane@example.com'
           }
-        ]);
+        ];
+        
+        if (isLoadMore) {
+          setEmployees(prev => [...prev, ...mockData.map(e => ({ ...e, id: e.id + prev.length }))]);
+        } else {
+          setEmployees(mockData);
+        }
+        
+        setTotalPages(1);
         setIsLoading(false);
+        setIsFetchingMore(false);
       }, 500);
       return;
     }
 
     try {
-      const records = await pb.collection('employees').getFullList<Employee>({
+      const result = await pb.collection('employees').getList<Employee>(pageToFetch, 50, {
         sort: '-created',
       });
-      setEmployees(records);
-    } catch (err) {
-      toast.error('Failed to fetch employees');
+      
+      if (isLoadMore) {
+        setEmployees(prev => [...prev, ...result.items]);
+      } else {
+        setEmployees(result.items);
+      }
+      
+      setTotalPages(result.totalPages);
+      setPage(result.page);
+    } catch (err: any) {
+      if (err.status === 403) {
+        toast.error('Permission denied: Please check Pocketbase API Rules.');
+      } else if (err.status === 404) {
+        toast.error('Resource not found: Please check your Pocketbase collections.');
+      } else {
+        toast.error('Failed to fetch employees');
+      }
     } finally {
       setIsLoading(false);
+      setIsFetchingMore(false);
     }
   };
 
   useEffect(() => {
-    fetchEmployees();
+    fetchEmployees(1);
   }, []);
+
+  const handleLoadMore = () => {
+    if (page < totalPages) {
+      fetchEmployees(page + 1, true);
+    }
+  };
 
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,7 +185,13 @@ const EmployeeManagement: React.FC = () => {
       });
       fetchEmployees();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to add employee');
+      if (err.status === 403) {
+        toast.error('Permission denied: Please check Pocketbase API Rules.');
+      } else if (err.status === 404) {
+        toast.error('Resource not found: Please check your Pocketbase collections.');
+      } else {
+        toast.error(err.message || 'Failed to add employee');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -368,6 +411,26 @@ const EmployeeManagement: React.FC = () => {
             )}
           </TableBody>
         </Table>
+
+        {page < totalPages && (
+          <div className="p-4 border-t border-slate-100 flex justify-center">
+            <Button 
+              variant="outline" 
+              onClick={handleLoadMore} 
+              disabled={isFetchingMore}
+              className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+            >
+              {isFetchingMore ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                'Load More Employees'
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

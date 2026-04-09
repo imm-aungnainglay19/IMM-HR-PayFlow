@@ -81,6 +81,9 @@ const PayrollManagement: React.FC = () => {
   const [cycles, setCycles] = useState<PayrollCycle[]>([]);
   const [selectedCycleId, setSelectedCycleId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
   
@@ -94,8 +97,12 @@ const PayrollManagement: React.FC = () => {
     status: 'draft' as const,
   });
 
-  const fetchData = async () => {
-    setIsLoading(true);
+  const fetchData = async (pageToFetch = 1, isLoadMore = false) => {
+    if (isLoadMore) {
+      setIsFetchingMore(true);
+    } else {
+      setIsLoading(true);
+    }
 
     if (isMock) {
       setTimeout(() => {
@@ -107,14 +114,19 @@ const PayrollManagement: React.FC = () => {
           { id: 'c1', month_year: 'April 2026', start_date: '2026-04-01', end_date: '2026-04-30', status: 'draft' }
         ];
         
-        setEmployees(mockEmployees);
-        setCycles(mockCycles);
-        setSelectedCycleId('c1');
+        if (isLoadMore) {
+          setEmployees(prev => [...prev, ...mockEmployees.map(e => ({ ...e, id: e.id + prev.length }))]);
+        } else {
+          setEmployees(mockEmployees);
+          setCycles(mockCycles);
+          setSelectedCycleId('c1');
+        }
 
-        const initialEntries: Record<string, PayrollEntry> = {};
+        const newEntries: Record<string, PayrollEntry> = {};
         mockEmployees.forEach(emp => {
-          initialEntries[emp.id] = {
-            employeeId: emp.id,
+          const id = isLoadMore ? emp.id + employees.length : emp.id;
+          newEntries[id] = {
+            employeeId: id,
             fullName: emp.full_name,
             baseSalary: emp.base_salary,
             deductions: 0,
@@ -123,51 +135,78 @@ const PayrollManagement: React.FC = () => {
             processed: false,
           };
         });
-        setEntries(initialEntries);
+        
+        setEntries(prev => ({ ...prev, ...newEntries }));
+        setTotalPages(1);
         setIsLoading(false);
+        setIsFetchingMore(false);
       }, 500);
       return;
     }
 
     try {
-      const [empRecords, cycleRecords] = await Promise.all([
-        pb.collection('employees').getFullList<Employee>({ sort: 'full_name' }),
+      const [empResult, cycleRecords] = await Promise.all([
+        pb.collection('employees').getList<Employee>(pageToFetch, 50, { sort: 'full_name' }),
         pb.collection('payroll_cycles').getFullList<PayrollCycle>({ sort: '-created' })
       ]);
       
-      setEmployees(empRecords);
-      setCycles(cycleRecords);
+      const newEmployees = empResult.items;
       
-      if (cycleRecords.length > 0 && !selectedCycleId) {
-        setSelectedCycleId(cycleRecords[0].id);
+      if (isLoadMore) {
+        setEmployees(prev => [...prev, ...newEmployees]);
+      } else {
+        setEmployees(newEmployees);
+        setCycles(cycleRecords);
+        if (cycleRecords.length > 0 && !selectedCycleId) {
+          setSelectedCycleId(cycleRecords[0].id);
+        }
       }
+      
+      setTotalPages(empResult.totalPages);
+      setPage(empResult.page);
 
-      // Initialize entries
-      const initialEntries: Record<string, PayrollEntry> = {};
-      empRecords.forEach(emp => {
-        initialEntries[emp.id] = {
-          employeeId: emp.id,
-          fullName: emp.full_name,
-          baseSalary: emp.base_salary,
-          deductions: 0,
-          bonuses: 0,
-          netPay: emp.base_salary,
-          processed: false,
-        };
+      // Initialize entries for new employees
+      const newEntries: Record<string, PayrollEntry> = {};
+      newEmployees.forEach(emp => {
+        if (!entries[emp.id]) {
+          newEntries[emp.id] = {
+            employeeId: emp.id,
+            fullName: emp.full_name,
+            baseSalary: emp.base_salary,
+            deductions: 0,
+            bonuses: 0,
+            netPay: emp.base_salary,
+            processed: false,
+          };
+        }
       });
-      setEntries(initialEntries);
+      
+      setEntries(prev => ({ ...prev, ...newEntries }));
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Fetch error:', err);
-      toast.error('Failed to load payroll data. Please check your connection to PocketBase.');
+      if (err.status === 403) {
+        toast.error('Permission denied: Please check Pocketbase API Rules.');
+      } else if (err.status === 404) {
+        toast.error('Resource not found: Please check your Pocketbase collections.');
+      } else {
+        toast.error('Failed to load payroll data. Please check your connection to PocketBase.');
+      }
     } finally {
       setIsLoading(false);
+      setIsFetchingMore(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(1);
   }, []);
+
+  const handleLoadMore = () => {
+    if (page < totalPages) {
+      fetchData(page + 1, true);
+    }
+  };
 
   const handleCreateCycle = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,8 +223,14 @@ const PayrollManagement: React.FC = () => {
       setSelectedCycleId(record.id);
       setIsCycleModalOpen(false);
       toast.success('Payroll cycle created');
-    } catch (err) {
-      toast.error('Failed to create cycle');
+    } catch (err: any) {
+      if (err.status === 403) {
+        toast.error('Permission denied: Please check Pocketbase API Rules.');
+      } else if (err.status === 404) {
+        toast.error('Resource not found: Please check your Pocketbase collections.');
+      } else {
+        toast.error('Failed to create cycle');
+      }
     }
   };
 
@@ -247,8 +292,14 @@ const PayrollManagement: React.FC = () => {
       
       toast.success(`Successfully processed payroll for ${successCount} employees`);
       fetchData();
-    } catch (err) {
-      toast.error('Failed to process some payroll entries');
+    } catch (err: any) {
+      if (err.status === 403) {
+        toast.error('Permission denied: Please check Pocketbase API Rules.');
+      } else if (err.status === 404) {
+        toast.error('Resource not found: Please check your Pocketbase collections.');
+      } else {
+        toast.error('Failed to process some payroll entries');
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -459,6 +510,26 @@ const PayrollManagement: React.FC = () => {
                 )}
               </TableBody>
             </Table>
+
+            {page < totalPages && (
+              <div className="p-4 border-t border-slate-100 flex justify-center">
+                <Button 
+                  variant="outline" 
+                  onClick={handleLoadMore} 
+                  disabled={isFetchingMore}
+                  className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                >
+                  {isFetchingMore ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Load More Employees'
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

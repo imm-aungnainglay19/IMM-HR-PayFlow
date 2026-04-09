@@ -96,9 +96,15 @@ const EmployeePayslips: React.FC = () => {
           expand: 'cycle'
         });
         setSlips(records);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Fetch error:', err);
-        toast.error('Failed to load your payslips. Please check your connection to PocketBase.');
+        if (err.status === 403) {
+          toast.error('Permission denied: Please check Pocketbase API Rules.');
+        } else if (err.status === 404) {
+          toast.error('Resource not found: Please check your Pocketbase collections.');
+        } else {
+          toast.error('Failed to load your payslips. Please check your connection to PocketBase.');
+        }
       } finally {
         setIsLoading(false);
       }

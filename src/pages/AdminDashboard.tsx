@@ -61,9 +61,15 @@ const AdminDashboard: React.FC = () => {
           activeCycles: cycles.totalItems,
           recentSlips: slips.totalItems
         });
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to fetch stats', err);
-        toast.error('Failed to load dashboard statistics. Please check your connection.');
+        if (err.status === 403) {
+          toast.error('Permission denied: Please check Pocketbase API Rules.');
+        } else if (err.status === 404) {
+          toast.error('Resource not found: Please check your Pocketbase collections.');
+        } else {
+          toast.error('Failed to load dashboard statistics. Please check your connection.');
+        }
       } finally {
         setIsLoading(false);
       }
