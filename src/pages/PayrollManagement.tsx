@@ -13,7 +13,7 @@ import {
   Save,
   Download
 } from 'lucide-react';
-import pb from '@/src/lib/pocketbase';
+import pb from '../lib/pocketbase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -45,9 +45,9 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { useAuth } from '@/src/AuthContext';
+import { useAuth } from '../AuthContext';
 
-import { PayrollSkeleton } from '@/src/components/skeletons/PageSkeletons';
+import { PayrollSkeleton } from '../components/skeletons/PageSkeletons';
 
 interface Employee {
   id: string;
@@ -218,7 +218,7 @@ const PayrollManagement: React.FC = () => {
     }
 
     try {
-      const record = await pb.collection('payroll_cycles').create(newCycleData);
+      const record = await pb.collection('payroll_cycles').create(newCycleData) as unknown as PayrollCycle;
       setCycles([record, ...cycles]);
       setSelectedCycleId(record.id);
       setIsCycleModalOpen(false);

@@ -22,6 +22,7 @@ const Sidebar: React.FC = () => {
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { name: 'Employees', path: '/admin/employees', icon: Users },
     { name: 'Payroll', path: '/admin/payroll', icon: CreditCard },
+    { name: 'Settings', path: '/admin/settings', icon: Settings },
   ];
 
   const employeeLinks = [

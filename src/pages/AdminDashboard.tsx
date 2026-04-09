@@ -9,13 +9,13 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react';
-import pb from '@/src/lib/pocketbase';
+import pb from '../lib/pocketbase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
-import { useAuth } from '@/src/AuthContext';
+import { useAuth } from '../AuthContext';
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();

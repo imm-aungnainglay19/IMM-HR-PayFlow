@@ -1,5 +1,5 @@
 {
   "name": "PayFlow HR & Payroll",
-  "description": "Modern enterprise HR and payroll management dashboard connected to PocketBase.",
+  "description": "Modern enterprise HR and payroll management dashboard with organization settings, employee management, and automated payroll processing.",
   "requestFramePermissions": []
 }

@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { 
   Plus, 
   Search, 
@@ -7,9 +10,12 @@ import {
   Calendar, 
   DollarSign,
   Briefcase,
-  Loader2
+  Loader2,
+  Building2,
+  Pencil,
+  Trash2
 } from 'lucide-react';
-import pb from '@/src/lib/pocketbase';
+import pb from '../lib/pocketbase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -29,46 +35,217 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '../../components/ui/select';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '../../components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { useAuth } from '@/src/AuthContext';
+import { useAuth } from '../AuthContext';
 
-import { EmployeeSkeleton } from '@/src/components/skeletons/PageSkeletons';
+import { EmployeeSkeleton } from '../components/skeletons/PageSkeletons';
+
+const employeeSchema = z.object({
+  full_name: z.string().min(2, 'Full name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters').optional().or(z.literal('')),
+  employee_id: z.string().min(1, 'Employee ID is required'),
+  position: z.string().min(1, 'Position is required'),
+  department: z.string().min(1, 'Department is required'),
+  job_title: z.string().min(1, 'Job title is required'),
+  salary_template: z.string().optional(),
+  joining_date: z.string().min(1, 'Joining date is required'),
+  base_salary: z.number().min(0, 'Base salary must be a positive number'),
+});
+
+type EmployeeFormData = z.infer<typeof employeeSchema>;
+
+interface Department {
+  id: string;
+  name: string;
+}
+
+interface JobTitle {
+  id: string;
+  title: string;
+  base_salary?: number;
+}
+
+interface Allowance {
+  name: string;
+  amount: number;
+  type: 'fixed' | 'percentage';
+}
+
+interface SalaryTemplate {
+  id: string;
+  name: string;
+  basic_pay: number;
+  allowances: Allowance[];
+  tax_rate: number;
+}
 
 interface Employee {
   id: string;
   full_name: string;
   employee_id: string;
   position: string;
+  department: string;
+  job_title: string;
+  salary_template: string;
   joining_date: string;
   base_salary: number;
   email: string;
+  expand?: {
+    department?: Department;
+    job_title?: JobTitle;
+    salary_template?: SalaryTemplate;
+  };
 }
 
 const EmployeeManagement: React.FC = () => {
   const { user } = useAuth();
   const isMock = user?.id === 'mock-admin-id';
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+  const [salaryTemplates, setSalaryTemplates] = useState<SalaryTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    password: '',
-    employee_id: '',
-    position: '',
-    joining_date: format(new Date(), 'yyyy-MM-dd'),
-    base_salary: 0,
+  const { 
+    register, 
+    handleSubmit, 
+    control, 
+    reset, 
+    setValue, 
+    watch,
+    formState: { errors } 
+  } = useForm<EmployeeFormData>({
+    resolver: zodResolver(employeeSchema),
+    defaultValues: {
+      full_name: '',
+      email: '',
+      password: '',
+      employee_id: '',
+      position: '',
+      department: '',
+      job_title: '',
+      salary_template: '',
+      joining_date: format(new Date(), 'yyyy-MM-dd'),
+      base_salary: 0,
+    }
   });
+
+  const watchJobTitle = watch('job_title');
+  const watchSalaryTemplate = watch('salary_template');
+
+  const selectedTemplate = salaryTemplates.find(t => t.id === watchSalaryTemplate);
+
+  useEffect(() => {
+    if (watchJobTitle) {
+      const job = jobTitles.find(j => j.id === watchJobTitle);
+      if (job) {
+        setValue('position', job.title);
+        if (job.base_salary) setValue('base_salary', job.base_salary);
+      }
+    }
+  }, [watchJobTitle, jobTitles, setValue]);
+
+  useEffect(() => {
+    if (watchSalaryTemplate) {
+      const template = salaryTemplates.find(t => t.id === watchSalaryTemplate);
+      if (template) {
+        setValue('base_salary', template.basic_pay);
+      }
+    }
+  }, [watchSalaryTemplate, salaryTemplates, setValue]);
+
+  useEffect(() => {
+    if (editingEmployee) {
+      reset({
+        full_name: editingEmployee.full_name,
+        email: editingEmployee.email,
+        password: '',
+        employee_id: editingEmployee.employee_id,
+        position: editingEmployee.position,
+        department: editingEmployee.department,
+        job_title: editingEmployee.job_title,
+        salary_template: editingEmployee.salary_template,
+        joining_date: editingEmployee.joining_date.split(' ')[0], // Handle potential time string
+        base_salary: editingEmployee.base_salary,
+      });
+    } else {
+      reset({
+        full_name: '',
+        email: '',
+        password: '',
+        employee_id: '',
+        position: '',
+        department: '',
+        job_title: '',
+        salary_template: '',
+        joining_date: format(new Date(), 'yyyy-MM-dd'),
+        base_salary: 0,
+      });
+    }
+  }, [editingEmployee, reset]);
+
+  const fetchMetadata = async () => {
+    if (isMock) {
+      setDepartments([
+        { id: 'd1', name: 'Engineering' },
+        { id: 'd2', name: 'Product' },
+        { id: 'd3', name: 'HR' }
+      ]);
+      setJobTitles([
+        { id: 'j1', title: 'Software Engineer', base_salary: 5000 },
+        { id: 'j2', title: 'Product Manager', base_salary: 6000 }
+      ]);
+      setSalaryTemplates([
+        { id: 't1', name: 'Standard Tech', basic_pay: 4500, tax_rate: 10, allowances: [{ name: 'Housing', amount: 500, type: 'fixed' }] }
+      ]);
+      return;
+    }
+
+    try {
+      const [deptRecords, jobRecords, templateRecords] = await Promise.all([
+        pb.collection('departments').getFullList<Department>({ sort: 'name' }),
+        pb.collection('job_titles').getFullList<JobTitle>({ sort: 'title' }),
+        pb.collection('salary_templates').getFullList<SalaryTemplate>({ sort: 'name' })
+      ]);
+      setDepartments(deptRecords);
+      setJobTitles(jobRecords);
+      setSalaryTemplates(templateRecords);
+    } catch (err: any) {
+      console.error('Failed to fetch metadata:', err);
+      const message = err.message || 'Failed to fetch metadata';
+      if (err.status === 403) {
+        toast.error('Permission denied: Please ensure your Pocketbase API Rules allow access to departments, job_titles, and salary_templates.');
+      } else if (err.status === 404) {
+        toast.error('Collections not found: Please ensure departments, job_titles, and salary_templates collections exist.');
+      } else {
+        toast.error(message);
+      }
+    }
+  };
 
   const fetchEmployees = async (pageToFetch = 1, isLoadMore = false) => {
     if (isLoadMore) {
@@ -85,18 +262,32 @@ const EmployeeManagement: React.FC = () => {
             full_name: 'John Doe',
             employee_id: 'EMP-001',
             position: 'Software Engineer',
+            department: 'd1',
+            job_title: 'j1',
+            salary_template: 't1',
             joining_date: '2023-01-15',
             base_salary: 5000,
-            email: 'john@example.com'
+            email: 'john@example.com',
+            expand: {
+              department: { id: 'd1', name: 'Engineering' },
+              job_title: { id: 'j1', title: 'Software Engineer' }
+            }
           },
           {
             id: '2',
             full_name: 'Jane Smith',
             employee_id: 'EMP-002',
             position: 'Product Manager',
+            department: 'd2',
+            job_title: 'j2',
+            salary_template: 't2',
             joining_date: '2023-03-10',
             base_salary: 6000,
-            email: 'jane@example.com'
+            email: 'jane@example.com',
+            expand: {
+              department: { id: 'd2', name: 'Product' },
+              job_title: { id: 'j2', title: 'Product Manager' }
+            }
           }
         ];
         
@@ -116,6 +307,7 @@ const EmployeeManagement: React.FC = () => {
     try {
       const result = await pb.collection('employees').getList<Employee>(pageToFetch, 50, {
         sort: '-created',
+        expand: 'department,job_title,salary_template'
       });
       
       if (isLoadMore) {
@@ -142,6 +334,7 @@ const EmployeeManagement: React.FC = () => {
 
   useEffect(() => {
     fetchEmployees(1);
+    fetchMetadata();
   }, []);
 
   const handleLoadMore = () => {
@@ -150,50 +343,60 @@ const EmployeeManagement: React.FC = () => {
     }
   };
 
-  const handleAddEmployee = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: EmployeeFormData) => {
     setIsSubmitting(true);
 
     if (isMock) {
       setTimeout(() => {
-        toast.success('Employee added successfully (Demo Mode)');
-        setIsAddModalOpen(false);
+        toast.success(editingEmployee ? 'Employee updated successfully (Demo Mode)' : 'Employee added successfully (Demo Mode)');
+        setIsModalOpen(false);
+        setEditingEmployee(null);
         setIsSubmitting(false);
-        // In a real app we'd update state here
       }, 500);
       return;
     }
 
     try {
-      // Create auth record
-      await pb.collection('employees').create({
-        ...formData,
-        passwordConfirm: formData.password,
-        emailVisibility: true,
-      });
+      if (editingEmployee) {
+        const updateData: any = { ...data };
+        if (!updateData.password) delete updateData.password;
+        
+        await pb.collection('employees').update(editingEmployee.id, updateData);
+        toast.success('Employee updated successfully');
+      } else {
+        await pb.collection('employees').create({
+          ...data,
+          passwordConfirm: data.password,
+          emailVisibility: true,
+        });
+        toast.success('Employee added successfully');
+      }
       
-      toast.success('Employee added successfully');
-      setIsAddModalOpen(false);
-      setFormData({
-        full_name: '',
-        email: '',
-        password: '',
-        employee_id: '',
-        position: '',
-        joining_date: format(new Date(), 'yyyy-MM-dd'),
-        base_salary: 0,
-      });
+      setIsModalOpen(false);
+      setEditingEmployee(null);
       fetchEmployees();
     } catch (err: any) {
-      if (err.status === 403) {
-        toast.error('Permission denied: Please check Pocketbase API Rules.');
-      } else if (err.status === 404) {
-        toast.error('Resource not found: Please check your Pocketbase collections.');
-      } else {
-        toast.error(err.message || 'Failed to add employee');
-      }
+      toast.error(err.message || 'Failed to save employee');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteEmployee = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this employee? This action cannot be undone.')) return;
+
+    if (isMock) {
+      setEmployees(prev => prev.filter(emp => emp.id !== id));
+      toast.success('Employee deleted successfully (Demo Mode)');
+      return;
+    }
+
+    try {
+      await pb.collection('employees').delete(id);
+      toast.success('Employee deleted successfully');
+      fetchEmployees();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete employee');
     }
   };
 
@@ -215,21 +418,31 @@ const EmployeeManagement: React.FC = () => {
           <p className="text-slate-500 mt-1">View and manage your organization's workforce</p>
         </div>
         
-        <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+        <Dialog open={isModalOpen} onOpenChange={(open) => {
+          setIsModalOpen(open);
+          if (!open) setEditingEmployee(null);
+        }}>
           <DialogTrigger 
             render={
-              <Button className="bg-indigo-600 hover:bg-indigo-700" aria-label="Add a new employee to the system">
+              <Button 
+                className="bg-indigo-600 hover:bg-indigo-700" 
+                aria-label="Add a new employee to the system"
+                onClick={() => {
+                  setEditingEmployee(null);
+                  setIsModalOpen(true);
+                }}
+              >
                 <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
                 Add New Employee
               </Button>
             }
           />
           <DialogContent className="sm:max-w-[525px]">
-            <form onSubmit={handleAddEmployee} aria-label="Add employee form">
+            <form onSubmit={handleSubmit(onSubmit)} aria-label={editingEmployee ? "Edit employee form" : "Add employee form"}>
               <DialogHeader>
-                <DialogTitle>Add New Employee</DialogTitle>
+                <DialogTitle>{editingEmployee ? 'Edit Employee' : 'Add New Employee'}</DialogTitle>
                 <DialogDescription>
-                  Create a new employee profile and authentication account.
+                  {editingEmployee ? 'Update the employee profile information.' : 'Create a new employee profile and authentication account.'}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -238,22 +451,26 @@ const EmployeeManagement: React.FC = () => {
                     <Label htmlFor="full_name">Full Name</Label>
                     <Input 
                       id="full_name" 
-                      required 
-                      aria-required="true"
-                      value={formData.full_name}
-                      onChange={e => setFormData({...formData, full_name: e.target.value})}
+                      {...register('full_name')}
+                      aria-invalid={!!errors.full_name}
+                      aria-describedby={errors.full_name ? "full_name-error" : undefined}
                     />
+                    {errors.full_name && (
+                      <p id="full_name-error" className="text-xs text-destructive">{errors.full_name.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="employee_id">Employee ID</Label>
                     <Input 
                       id="employee_id" 
                       placeholder="EMP-001" 
-                      required 
-                      aria-required="true"
-                      value={formData.employee_id}
-                      onChange={e => setFormData({...formData, employee_id: e.target.value})}
+                      {...register('employee_id')}
+                      aria-invalid={!!errors.employee_id}
+                      aria-describedby={errors.employee_id ? "employee_id-error" : undefined}
                     />
+                    {errors.employee_id && (
+                      <p id="employee_id-error" className="text-xs text-destructive">{errors.employee_id.message}</p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -261,61 +478,160 @@ const EmployeeManagement: React.FC = () => {
                   <Input 
                     id="email" 
                     type="email" 
-                    required 
-                    aria-required="true"
-                    value={formData.email}
-                    onChange={e => setFormData({...formData, email: e.target.value})}
+                    {...register('email')}
+                    aria-invalid={!!errors.email}
+                    aria-describedby={errors.email ? "email-error" : undefined}
                   />
+                  {errors.email && (
+                    <p id="email-error" className="text-xs text-destructive">{errors.email.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Initial Password</Label>
+                  <Label htmlFor="password">{editingEmployee ? 'New Password (Optional)' : 'Initial Password'}</Label>
                   <Input 
                     id="password" 
                     type="password" 
-                    required 
-                    aria-required="true"
-                    value={formData.password}
-                    onChange={e => setFormData({...formData, password: e.target.value})}
+                    {...register('password')}
+                    aria-invalid={!!errors.password}
+                    aria-describedby={errors.password ? "password-error" : undefined}
                   />
+                  {errors.password && (
+                    <p id="password-error" className="text-xs text-destructive">{errors.password.message}</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="position">Position</Label>
-                    <Input 
-                      id="position" 
-                      required 
-                      aria-required="true"
-                      value={formData.position}
-                      onChange={e => setFormData({...formData, position: e.target.value})}
+                    <Label htmlFor="department">Department</Label>
+                    <Controller
+                      name="department"
+                      control={control}
+                      render={({ field }) => (
+                        <Select 
+                          value={field.value} 
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger id="department" aria-invalid={!!errors.department} aria-describedby={errors.department ? "department-error" : undefined}>
+                            <SelectValue placeholder="Select Department" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {departments.map(dept => (
+                              <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.department && (
+                      <p id="department-error" className="text-xs text-destructive">{errors.department.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="job_title">Job Title</Label>
+                    <Controller
+                      name="job_title"
+                      control={control}
+                      render={({ field }) => (
+                        <Select 
+                          value={field.value} 
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger id="job_title" aria-invalid={!!errors.job_title} aria-describedby={errors.job_title ? "job_title-error" : undefined}>
+                            <SelectValue placeholder="Select Job Title" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {jobTitles.map(job => (
+                              <SelectItem key={job.id} value={job.id}>{job.title}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.job_title && (
+                      <p id="job_title-error" className="text-xs text-destructive">{errors.job_title.message}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="salary_template">Salary Template</Label>
+                    <Controller
+                      name="salary_template"
+                      control={control}
+                      render={({ field }) => (
+                        <Select 
+                          value={field.value} 
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger id="salary_template">
+                            <SelectValue placeholder="Select Template" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {salaryTemplates.map(t => (
+                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="base_salary">Base Salary ($)</Label>
+                    <Label htmlFor="base_salary">Basic Pay ($)</Label>
                     <Input 
                       id="base_salary" 
                       type="number" 
-                      required 
-                      aria-required="true"
-                      value={formData.base_salary}
-                      onChange={e => setFormData({...formData, base_salary: parseFloat(e.target.value)})}
+                      {...register('base_salary', { valueAsNumber: true })}
+                      aria-invalid={!!errors.base_salary}
+                      aria-describedby={errors.base_salary ? "base_salary-error" : undefined}
                     />
+                    {errors.base_salary && (
+                      <p id="base_salary-error" className="text-xs text-destructive">{errors.base_salary.message}</p>
+                    )}
                   </div>
                 </div>
+
+                {selectedTemplate && (
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+                    <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-indigo-600" />
+                      Compensation Breakdown
+                    </h4>
+                    <div className="grid grid-cols-2 gap-y-2 text-xs">
+                      <span className="text-slate-500">Basic Pay:</span>
+                      <span className="text-right font-medium">${selectedTemplate.basic_pay.toLocaleString()}</span>
+                      
+                      {selectedTemplate.allowances?.map((allowance, idx) => (
+                        <React.Fragment key={idx}>
+                          <span className="text-slate-500">{allowance.name}:</span>
+                          <span className="text-right font-medium">
+                            {allowance.type === 'fixed' ? `$${allowance.amount.toLocaleString()}` : `${allowance.amount}%`}
+                          </span>
+                        </React.Fragment>
+                      ))}
+                      
+                      <div className="col-span-2 border-t border-slate-200 my-1"></div>
+                      
+                      <span className="text-slate-500">Tax Rate:</span>
+                      <span className="text-right font-medium text-red-600">{selectedTemplate.tax_rate}%</span>
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="joining_date">Joining Date</Label>
                   <Input 
                     id="joining_date" 
                     type="date" 
-                    required 
-                    aria-required="true"
-                    value={formData.joining_date}
-                    onChange={e => setFormData({...formData, joining_date: e.target.value})}
+                    {...register('joining_date')}
+                    aria-invalid={!!errors.joining_date}
+                    aria-describedby={errors.joining_date ? "joining_date-error" : undefined}
                   />
+                  {errors.joining_date && (
+                    <p id="joining_date-error" className="text-xs text-destructive">{errors.joining_date.message}</p>
+                  )}
                 </div>
               </div>
               <DialogFooter>
                 <Button type="submit" className="w-full bg-indigo-600" disabled={isSubmitting} aria-busy={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : 'Create Employee Profile'}
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : (editingEmployee ? 'Update Employee' : 'Create Employee Profile')}
                 </Button>
               </DialogFooter>
             </form>
@@ -384,9 +700,15 @@ const EmployeeManagement: React.FC = () => {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <Briefcase className="w-3 h-3" />
-                      {emp.position}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 text-slate-900 font-medium">
+                        <Briefcase className="w-3 h-3 text-slate-400" />
+                        {emp.expand?.job_title?.title || emp.position}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <Building2 className="w-3 h-3" />
+                        {emp.expand?.department?.name || 'No Department'}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -396,15 +718,42 @@ const EmployeeManagement: React.FC = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1 font-semibold text-slate-900">
-                      <DollarSign className="w-3 h-3" />
-                      {emp.base_salary.toLocaleString()}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1 font-semibold text-slate-900">
+                        <DollarSign className="w-3 h-3" />
+                        {emp.base_salary.toLocaleString()}
+                      </div>
+                      {emp.expand?.salary_template && (
+                        <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+                          {emp.expand.salary_template.name}
+                        </span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon">
-                      <MoreVertical className="w-4 h-4 text-slate-400" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger render={
+                        <Button variant="ghost" size="icon" aria-label={`Actions for ${emp.full_name}`}>
+                          <MoreVertical className="w-4 h-4 text-slate-400" />
+                        </Button>
+                      } />
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => {
+                          setEditingEmployee(emp);
+                          setIsModalOpen(true);
+                        }}>
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => handleDeleteEmployee(emp.id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))

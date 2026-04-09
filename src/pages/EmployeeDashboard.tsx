@@ -10,8 +10,8 @@ import {
   Download,
   Info
 } from 'lucide-react';
-import pb from '@/src/lib/pocketbase';
-import { useAuth } from '@/src/AuthContext';
+import pb from '../lib/pocketbase';
+import { useAuth } from '../AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,7 @@ const EmployeeDashboard: React.FC = () => {
         setTimeout(() => {
           setLatestSlip({
             id: 's1',
+            employee: user.id,
             net_pay: 4800,
             gross_pay: 5000,
             deductions: 200,

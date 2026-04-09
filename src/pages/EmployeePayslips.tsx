@@ -9,8 +9,8 @@ import {
   ArrowRight,
   ChevronRight
 } from 'lucide-react';
-import pb from '@/src/lib/pocketbase';
-import { useAuth } from '@/src/AuthContext';
+import pb from '../lib/pocketbase';
+import { useAuth } from '../AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -58,6 +58,7 @@ const EmployeePayslips: React.FC = () => {
           setSlips([
             {
               id: 's1',
+              employee: user.id,
               net_pay: 4800,
               gross_pay: 5000,
               deductions: 200,
@@ -72,6 +73,7 @@ const EmployeePayslips: React.FC = () => {
             },
             {
               id: 's2',
+              employee: user.id,
               net_pay: 4800,
               gross_pay: 5000,
               deductions: 200,

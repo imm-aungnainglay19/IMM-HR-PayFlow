@@ -18,6 +18,7 @@ const EmployeeDashboard = lazy(() => import('./pages/EmployeeDashboard'));
 const EmployeeManagement = lazy(() => import('./pages/EmployeeManagement'));
 const PayrollManagement = lazy(() => import('./pages/PayrollManagement'));
 const EmployeePayslips = lazy(() => import('./pages/EmployeePayslips'));
+const OrganizationSettings = lazy(() => import('./pages/OrganizationSettings'));
 
 const PageLoader = () => (
   <div className="h-full w-full flex items-center justify-center bg-slate-50">
@@ -91,6 +92,16 @@ export default function App() {
               <ProtectedRoute adminOnly>
                 <Suspense fallback={<PayrollSkeleton />}>
                   <PayrollManagement />
+                </Suspense>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/settings" 
+            element={
+              <ProtectedRoute adminOnly>
+                <Suspense fallback={<PageLoader />}>
+                  <OrganizationSettings />
                 </Suspense>
               </ProtectedRoute>
             } 
