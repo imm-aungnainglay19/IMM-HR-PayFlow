@@ -58,7 +58,8 @@ const EmployeePayslips: React.FC = () => {
         });
         setSlips(records);
       } catch (err) {
-        toast.error('Failed to fetch payslips');
+        console.error('Fetch error:', err);
+        toast.error('Failed to load your payslips. Please check your connection to PocketBase.');
       } finally {
         setIsLoading(false);
       }

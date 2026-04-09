@@ -15,6 +15,7 @@ import { useAuth } from '@/src/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
@@ -51,6 +52,7 @@ const EmployeeDashboard: React.FC = () => {
         }
       } catch (err) {
         console.error('Failed to fetch slip', err);
+        toast.error('Failed to load your latest payslip. Please check your connection.');
       } finally {
         setIsLoading(false);
       }

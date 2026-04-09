@@ -46,6 +46,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
+import { PayrollSkeleton } from '@/src/components/skeletons/PageSkeletons';
+
 interface Employee {
   id: string;
   full_name: string;
@@ -120,7 +122,8 @@ const PayrollManagement: React.FC = () => {
       setEntries(initialEntries);
 
     } catch (err) {
-      toast.error('Failed to fetch data');
+      console.error('Fetch error:', err);
+      toast.error('Failed to load payroll data. Please check your connection to PocketBase.');
     } finally {
       setIsLoading(false);
     }
@@ -201,6 +204,10 @@ const PayrollManagement: React.FC = () => {
 
   const selectedCycle = cycles.find(c => c.id === selectedCycleId);
 
+  if (isLoading) {
+    return <PayrollSkeleton />;
+  }
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -211,13 +218,13 @@ const PayrollManagement: React.FC = () => {
         
         <Dialog open={isCycleModalOpen} onOpenChange={setIsCycleModalOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <Plus className="w-4 h-4 mr-2" />
+            <Button className="bg-indigo-600 hover:bg-indigo-700" aria-label="Create a new payroll cycle">
+              <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
               New Payroll Cycle
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <form onSubmit={handleCreateCycle}>
+            <form onSubmit={handleCreateCycle} aria-label="Create payroll cycle form">
               <DialogHeader>
                 <DialogTitle>Create Payroll Cycle</DialogTitle>
                 <DialogDescription>
@@ -231,6 +238,7 @@ const PayrollManagement: React.FC = () => {
                     id="month_year" 
                     placeholder="e.g., April 2026" 
                     required 
+                    aria-required="true"
                     value={newCycleData.month_year}
                     onChange={e => setNewCycleData({...newCycleData, month_year: e.target.value})}
                   />
@@ -242,6 +250,7 @@ const PayrollManagement: React.FC = () => {
                       id="start_date" 
                       type="date" 
                       required 
+                      aria-required="true"
                       value={newCycleData.start_date}
                       onChange={e => setNewCycleData({...newCycleData, start_date: e.target.value})}
                     />
@@ -252,6 +261,7 @@ const PayrollManagement: React.FC = () => {
                       id="end_date" 
                       type="date" 
                       required 
+                      aria-required="true"
                       value={newCycleData.end_date}
                       onChange={e => setNewCycleData({...newCycleData, end_date: e.target.value})}
                     />
@@ -274,7 +284,7 @@ const PayrollManagement: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <Select value={selectedCycleId} onValueChange={setSelectedCycleId}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full" aria-label="Select payroll cycle">
                 <SelectValue placeholder="Select a cycle" />
               </SelectTrigger>
               <SelectContent>
@@ -287,7 +297,7 @@ const PayrollManagement: React.FC = () => {
             </Select>
 
             {selectedCycle && (
-              <div className="p-4 bg-slate-50 rounded-lg space-y-3">
+              <div className="p-4 bg-slate-50 rounded-lg space-y-3" role="region" aria-label="Cycle details">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Status</span>
                   <Badge variant={selectedCycle.status === 'paid' ? 'default' : 'secondary'}>
@@ -309,8 +319,10 @@ const PayrollManagement: React.FC = () => {
               className="w-full bg-indigo-600" 
               disabled={!selectedCycle || selectedCycle.status !== 'draft' || isProcessing}
               onClick={handleProcessPayroll}
+              aria-label="Process all payroll entries for this cycle"
+              aria-busy={isProcessing}
             >
-              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Calculator className="w-4 h-4 mr-2" />}
+              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden="true" /> : <Calculator className="w-4 h-4 mr-2" aria-hidden="true" />}
               Process All Payroll
             </Button>
           </CardContent>

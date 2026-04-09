@@ -34,6 +34,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
+import { EmployeeSkeleton } from '@/src/components/skeletons/PageSkeletons';
+
 interface Employee {
   id: string;
   full_name: string;
@@ -117,6 +119,10 @@ const EmployeeManagement: React.FC = () => {
     emp.position.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  if (isLoading) {
+    return <EmployeeSkeleton />;
+  }
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -127,13 +133,13 @@ const EmployeeManagement: React.FC = () => {
         
         <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <UserPlus className="w-4 h-4 mr-2" />
+            <Button className="bg-indigo-600 hover:bg-indigo-700" aria-label="Add a new employee to the system">
+              <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
               Add New Employee
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[525px]">
-            <form onSubmit={handleAddEmployee}>
+            <form onSubmit={handleAddEmployee} aria-label="Add employee form">
               <DialogHeader>
                 <DialogTitle>Add New Employee</DialogTitle>
                 <DialogDescription>
@@ -147,6 +153,7 @@ const EmployeeManagement: React.FC = () => {
                     <Input 
                       id="full_name" 
                       required 
+                      aria-required="true"
                       value={formData.full_name}
                       onChange={e => setFormData({...formData, full_name: e.target.value})}
                     />
@@ -157,6 +164,7 @@ const EmployeeManagement: React.FC = () => {
                       id="employee_id" 
                       placeholder="EMP-001" 
                       required 
+                      aria-required="true"
                       value={formData.employee_id}
                       onChange={e => setFormData({...formData, employee_id: e.target.value})}
                     />
@@ -168,6 +176,7 @@ const EmployeeManagement: React.FC = () => {
                     id="email" 
                     type="email" 
                     required 
+                    aria-required="true"
                     value={formData.email}
                     onChange={e => setFormData({...formData, email: e.target.value})}
                   />
@@ -178,6 +187,7 @@ const EmployeeManagement: React.FC = () => {
                     id="password" 
                     type="password" 
                     required 
+                    aria-required="true"
                     value={formData.password}
                     onChange={e => setFormData({...formData, password: e.target.value})}
                   />
@@ -188,6 +198,7 @@ const EmployeeManagement: React.FC = () => {
                     <Input 
                       id="position" 
                       required 
+                      aria-required="true"
                       value={formData.position}
                       onChange={e => setFormData({...formData, position: e.target.value})}
                     />
@@ -198,6 +209,7 @@ const EmployeeManagement: React.FC = () => {
                       id="base_salary" 
                       type="number" 
                       required 
+                      aria-required="true"
                       value={formData.base_salary}
                       onChange={e => setFormData({...formData, base_salary: parseFloat(e.target.value)})}
                     />
@@ -209,14 +221,15 @@ const EmployeeManagement: React.FC = () => {
                     id="joining_date" 
                     type="date" 
                     required 
+                    aria-required="true"
                     value={formData.joining_date}
                     onChange={e => setFormData({...formData, joining_date: e.target.value})}
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" className="w-full bg-indigo-600" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Employee Profile'}
+                <Button type="submit" className="w-full bg-indigo-600" disabled={isSubmitting} aria-busy={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : 'Create Employee Profile'}
                 </Button>
               </DialogFooter>
             </form>
@@ -224,19 +237,20 @@ const EmployeeManagement: React.FC = () => {
         </Dialog>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" role="region" aria-label="Employee list">
         <div className="p-4 border-bottom border-slate-100 flex items-center gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
             <Input 
               placeholder="Search by name, ID or position..." 
               className="pl-10 bg-slate-50 border-none"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
+              aria-label="Search employees"
             />
           </div>
-          <Button variant="outline" size="icon">
-            <Plus className="w-4 h-4" />
+          <Button variant="outline" size="icon" aria-label="More options">
+            <Plus className="w-4 h-4" aria-hidden="true" />
           </Button>
         </div>
 

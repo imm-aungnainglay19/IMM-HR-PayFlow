@@ -3,18 +3,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import LoginPage from './pages/LoginPage';
 import Sidebar from './components/layout/Sidebar';
-import AdminDashboard from './pages/AdminDashboard';
-import EmployeeDashboard from './pages/EmployeeDashboard';
-import EmployeeManagement from './pages/EmployeeManagement';
-import PayrollManagement from './pages/PayrollManagement';
-import EmployeePayslips from './pages/EmployeePayslips';
 import { Toaster } from '@/components/ui/sonner';
 import { Loader2 } from 'lucide-react';
+import { EmployeeSkeleton, PayrollSkeleton } from './components/skeletons/PageSkeletons';
+
+// Lazy load pages
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const EmployeeDashboard = lazy(() => import('./pages/EmployeeDashboard'));
+const EmployeeManagement = lazy(() => import('./pages/EmployeeManagement'));
+const PayrollManagement = lazy(() => import('./pages/PayrollManagement'));
+const EmployeePayslips = lazy(() => import('./pages/EmployeePayslips'));
+
+const PageLoader = () => (
+  <div className="h-full w-full flex items-center justify-center bg-slate-50">
+    <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+  </div>
+);
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ 
   children, 
@@ -60,7 +69,9 @@ export default function App() {
             path="/admin" 
             element={
               <ProtectedRoute adminOnly>
-                <AdminDashboard />
+                <Suspense fallback={<PageLoader />}>
+                  <AdminDashboard />
+                </Suspense>
               </ProtectedRoute>
             } 
           />
@@ -68,7 +79,9 @@ export default function App() {
             path="/admin/employees" 
             element={
               <ProtectedRoute adminOnly>
-                <EmployeeManagement />
+                <Suspense fallback={<EmployeeSkeleton />}>
+                  <EmployeeManagement />
+                </Suspense>
               </ProtectedRoute>
             } 
           />
@@ -76,7 +89,9 @@ export default function App() {
             path="/admin/payroll" 
             element={
               <ProtectedRoute adminOnly>
-                <PayrollManagement />
+                <Suspense fallback={<PayrollSkeleton />}>
+                  <PayrollManagement />
+                </Suspense>
               </ProtectedRoute>
             } 
           />
@@ -86,7 +101,9 @@ export default function App() {
             path="/employee" 
             element={
               <ProtectedRoute>
-                <EmployeeDashboard />
+                <Suspense fallback={<PageLoader />}>
+                  <EmployeeDashboard />
+                </Suspense>
               </ProtectedRoute>
             } 
           />
@@ -94,7 +111,9 @@ export default function App() {
             path="/employee/payslips" 
             element={
               <ProtectedRoute>
-                <EmployeePayslips />
+                <Suspense fallback={<PageLoader />}>
+                  <EmployeePayslips />
+                </Suspense>
               </ProtectedRoute>
             } 
           />

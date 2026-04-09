@@ -75,19 +75,19 @@ const LoginPage: React.FC = () => {
           <p className="text-slate-500 mt-2">Enterprise HR & Payroll Management</p>
         </div>
 
-        <Card className="border-slate-200 shadow-xl shadow-slate-200/50">
+        <Card className="border-slate-200 shadow-xl shadow-slate-200/50" role="region" aria-labelledby="login-title">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
+            <CardTitle id="login-title" className="text-2xl font-bold">Sign in</CardTitle>
             <CardDescription>
               Enter your credentials to access your dashboard
             </CardDescription>
           </CardHeader>
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleLogin} aria-label="Login form">
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Username or Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" aria-hidden="true" />
                   <Input 
                     id="email" 
                     type="text" 
@@ -96,16 +96,17 @@ const LoginPage: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    aria-required="true"
                   />
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <a href="#" className="text-xs text-indigo-600 hover:underline">Forgot password?</a>
+                  <a href="#" className="text-xs text-indigo-600 hover:underline" aria-label="Forgot your password?">Forgot password?</a>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" aria-hidden="true" />
                   <Input 
                     id="password" 
                     type="password" 
@@ -114,6 +115,7 @@ const LoginPage: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    aria-required="true"
                   />
                 </div>
               </div>
@@ -123,10 +125,11 @@ const LoginPage: React.FC = () => {
                 type="submit" 
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-6"
                 disabled={isLoading}
+                aria-busy={isLoading}
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                     Signing in...
                   </>
                 ) : (

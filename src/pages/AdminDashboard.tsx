@@ -12,6 +12,7 @@ import {
 import pb from '@/src/lib/pocketbase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 const AdminDashboard: React.FC = () => {
@@ -43,6 +44,7 @@ const AdminDashboard: React.FC = () => {
         });
       } catch (err) {
         console.error('Failed to fetch stats', err);
+        toast.error('Failed to load dashboard statistics. Please check your connection.');
       } finally {
         setIsLoading(false);
       }
