@@ -34,6 +34,7 @@ interface SalarySlip {
 
 const EmployeeDashboard: React.FC = () => {
   const { user } = useAuth();
+  const isMock = user?.id === 'mock-admin-id';
   const [latestSlip, setLatestSlip] = useState<SalarySlip | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -41,6 +42,26 @@ const EmployeeDashboard: React.FC = () => {
     const fetchLatestSlip = async () => {
       if (!user?.id) return;
       setIsLoading(true);
+
+      if (isMock) {
+        setTimeout(() => {
+          setLatestSlip({
+            id: 's1',
+            net_pay: 4800,
+            gross_pay: 5000,
+            deductions: 200,
+            created: new Date().toISOString(),
+            expand: {
+              cycle: {
+                month_year: 'March 2026'
+              }
+            }
+          });
+          setIsLoading(false);
+        }, 500);
+        return;
+      }
+
       try {
         const records = await pb.collection('salary_slips').getList<SalarySlip>(1, 1, {
           filter: `employee = "${user.id}"`,

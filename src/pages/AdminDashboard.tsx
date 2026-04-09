@@ -15,7 +15,11 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
+import { useAuth } from '@/src/AuthContext';
+
 const AdminDashboard: React.FC = () => {
+  const { user } = useAuth();
+  const isMock = user?.id === 'mock-admin-id';
   const [stats, setStats] = useState({
     totalEmployees: 0,
     totalPayroll: 0,
@@ -27,6 +31,21 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       setIsLoading(true);
+      
+      if (isMock) {
+        // Provide mock data for demo mode
+        setTimeout(() => {
+          setStats({
+            totalEmployees: 12,
+            totalPayroll: 45000,
+            activeCycles: 2,
+            recentSlips: 24
+          });
+          setIsLoading(false);
+        }, 500);
+        return;
+      }
+
       try {
         const [employees, cycles, slips] = await Promise.all([
           pb.collection('employees').getList(1, 1),

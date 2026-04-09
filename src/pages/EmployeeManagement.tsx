@@ -33,6 +33,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useAuth } from '@/src/AuthContext';
 
 import { EmployeeSkeleton } from '@/src/components/skeletons/PageSkeletons';
 
@@ -47,6 +48,8 @@ interface Employee {
 }
 
 const EmployeeManagement: React.FC = () => {
+  const { user } = useAuth();
+  const isMock = user?.id === 'mock-admin-id';
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -66,6 +69,34 @@ const EmployeeManagement: React.FC = () => {
 
   const fetchEmployees = async () => {
     setIsLoading(true);
+
+    if (isMock) {
+      setTimeout(() => {
+        setEmployees([
+          {
+            id: '1',
+            full_name: 'John Doe',
+            employee_id: 'EMP-001',
+            position: 'Software Engineer',
+            joining_date: '2023-01-15',
+            base_salary: 5000,
+            email: 'john@example.com'
+          },
+          {
+            id: '2',
+            full_name: 'Jane Smith',
+            employee_id: 'EMP-002',
+            position: 'Product Manager',
+            joining_date: '2023-03-10',
+            base_salary: 6000,
+            email: 'jane@example.com'
+          }
+        ]);
+        setIsLoading(false);
+      }, 500);
+      return;
+    }
+
     try {
       const records = await pb.collection('employees').getFullList<Employee>({
         sort: '-created',
@@ -85,6 +116,16 @@ const EmployeeManagement: React.FC = () => {
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    if (isMock) {
+      setTimeout(() => {
+        toast.success('Employee added successfully (Demo Mode)');
+        setIsAddModalOpen(false);
+        setIsSubmitting(false);
+        // In a real app we'd update state here
+      }, 500);
+      return;
+    }
 
     try {
       // Create auth record
@@ -132,12 +173,14 @@ const EmployeeManagement: React.FC = () => {
         </div>
         
         <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-indigo-600 hover:bg-indigo-700" aria-label="Add a new employee to the system">
-              <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
-              Add New Employee
-            </Button>
-          </DialogTrigger>
+          <DialogTrigger 
+            render={
+              <Button className="bg-indigo-600 hover:bg-indigo-700" aria-label="Add a new employee to the system">
+                <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
+                Add New Employee
+              </Button>
+            }
+          />
           <DialogContent className="sm:max-w-[525px]">
             <form onSubmit={handleAddEmployee} aria-label="Add employee form">
               <DialogHeader>

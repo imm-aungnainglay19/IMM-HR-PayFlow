@@ -45,6 +45,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useAuth } from '@/src/AuthContext';
 
 import { PayrollSkeleton } from '@/src/components/skeletons/PageSkeletons';
 
@@ -74,6 +75,8 @@ interface PayrollEntry {
 }
 
 const PayrollManagement: React.FC = () => {
+  const { user } = useAuth();
+  const isMock = user?.id === 'mock-admin-id';
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [cycles, setCycles] = useState<PayrollCycle[]>([]);
   const [selectedCycleId, setSelectedCycleId] = useState<string>('');
@@ -93,6 +96,39 @@ const PayrollManagement: React.FC = () => {
 
   const fetchData = async () => {
     setIsLoading(true);
+
+    if (isMock) {
+      setTimeout(() => {
+        const mockEmployees = [
+          { id: '1', full_name: 'John Doe', employee_id: 'EMP-001', base_salary: 5000 },
+          { id: '2', full_name: 'Jane Smith', employee_id: 'EMP-002', base_salary: 6000 }
+        ];
+        const mockCycles: PayrollCycle[] = [
+          { id: 'c1', month_year: 'April 2026', start_date: '2026-04-01', end_date: '2026-04-30', status: 'draft' }
+        ];
+        
+        setEmployees(mockEmployees);
+        setCycles(mockCycles);
+        setSelectedCycleId('c1');
+
+        const initialEntries: Record<string, PayrollEntry> = {};
+        mockEmployees.forEach(emp => {
+          initialEntries[emp.id] = {
+            employeeId: emp.id,
+            fullName: emp.full_name,
+            baseSalary: emp.base_salary,
+            deductions: 0,
+            bonuses: 0,
+            netPay: emp.base_salary,
+            processed: false,
+          };
+        });
+        setEntries(initialEntries);
+        setIsLoading(false);
+      }, 500);
+      return;
+    }
+
     try {
       const [empRecords, cycleRecords] = await Promise.all([
         pb.collection('employees').getFullList<Employee>({ sort: 'full_name' }),
@@ -135,6 +171,13 @@ const PayrollManagement: React.FC = () => {
 
   const handleCreateCycle = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isMock) {
+      toast.success('Payroll cycle created (Demo Mode)');
+      setIsCycleModalOpen(false);
+      return;
+    }
+
     try {
       const record = await pb.collection('payroll_cycles').create(newCycleData);
       setCycles([record, ...cycles]);
@@ -168,6 +211,15 @@ const PayrollManagement: React.FC = () => {
     if (!selectedCycleId) return;
     
     setIsProcessing(true);
+    
+    if (isMock) {
+      setTimeout(() => {
+        toast.success(`Successfully processed payroll (Demo Mode)`);
+        setIsProcessing(false);
+      }, 1000);
+      return;
+    }
+
     let successCount = 0;
     
     try {
@@ -217,12 +269,14 @@ const PayrollManagement: React.FC = () => {
         </div>
         
         <Dialog open={isCycleModalOpen} onOpenChange={setIsCycleModalOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-indigo-600 hover:bg-indigo-700" aria-label="Create a new payroll cycle">
-              <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
-              New Payroll Cycle
-            </Button>
-          </DialogTrigger>
+          <DialogTrigger 
+            render={
+              <Button className="bg-indigo-600 hover:bg-indigo-700" aria-label="Create a new payroll cycle">
+                <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
+                New Payroll Cycle
+              </Button>
+            }
+          />
           <DialogContent>
             <form onSubmit={handleCreateCycle} aria-label="Create payroll cycle form">
               <DialogHeader>

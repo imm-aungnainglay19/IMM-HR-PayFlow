@@ -42,6 +42,7 @@ interface SalarySlip {
 
 const EmployeePayslips: React.FC = () => {
   const { user } = useAuth();
+  const isMock = user?.id === 'mock-admin-id';
   const [slips, setSlips] = useState<SalarySlip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,6 +51,44 @@ const EmployeePayslips: React.FC = () => {
     const fetchSlips = async () => {
       if (!user?.id) return;
       setIsLoading(true);
+
+      if (isMock) {
+        setTimeout(() => {
+          setSlips([
+            {
+              id: 's1',
+              net_pay: 4800,
+              gross_pay: 5000,
+              deductions: 200,
+              created: '2026-03-31T10:00:00Z',
+              expand: {
+                cycle: {
+                  month_year: 'March 2026',
+                  start_date: '2026-03-01',
+                  end_date: '2026-03-31'
+                }
+              }
+            },
+            {
+              id: 's2',
+              net_pay: 4800,
+              gross_pay: 5000,
+              deductions: 200,
+              created: '2026-02-28T10:00:00Z',
+              expand: {
+                cycle: {
+                  month_year: 'February 2026',
+                  start_date: '2026-02-01',
+                  end_date: '2026-02-28'
+                }
+              }
+            }
+          ]);
+          setIsLoading(false);
+        }, 500);
+        return;
+      }
+
       try {
         const records = await pb.collection('salary_slips').getFullList<SalarySlip>({
           filter: `employee = "${user.id}"`,
